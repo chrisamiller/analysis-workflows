@@ -19,8 +19,6 @@ inputs:
     normal_bam:
         type: File
         secondaryFiles: [.bai,^.bai]
-    roi_intervals:
-        type: File
     strelka_exome_mode:
         type: boolean
     strelka_cpu_reserved:
@@ -47,12 +45,6 @@ inputs:
         default: 0.99
     varscan_max_normal_freq:
         type: float?
-    docm_vcf:
-        type: File
-        secondaryFiles: [.tbi]
-    filter_docm_variants:
-        type: boolean?
-        default: true
     vep_cache_dir:
         type:
             - string
@@ -78,9 +70,6 @@ inputs:
     vep_plugins:
         type: string[]?
         default: [Frameshift, Wildtype]
-    filter_gnomADe_maximum_population_allele_frequency:
-        type: float?
-        default: 0.001
     filter_mapq0_threshold:
         type: float?
         default: 0.15
@@ -104,13 +93,13 @@ inputs:
         default: false
     variants_to_table_fields:
         type: string[]?
-        default: [CHROM,POS,ID,REF,ALT,set,AC,AF]
+        default: [CHROM,POS,ID,REF,ALT,set,AC,AF,LLR,MQ0]
     variants_to_table_genotype_fields:
         type: string[]?
         default: [GT,AD]
     vep_to_table_fields:
         type: string[]?
-        default: [HGVSc,HGVSp]
+        default: []
     tumor_sample_name:
         type: string
     normal_sample_name:
@@ -146,10 +135,6 @@ outputs:
     varscan_filtered_vcf:
         type: File
         outputSource: varscan/filtered_vcf
-        secondaryFiles: [.tbi]
-    docm_filtered_vcf:
-        type: File
-        outputSource: docm/docm_variants_vcf
         secondaryFiles: [.tbi]
     final_vcf:
         type: File
@@ -219,17 +204,6 @@ steps:
             normal_sample_name: normal_sample_name
         out:
             [unfiltered_vcf, filtered_vcf]
-    docm:
-        run: ../subworkflows/docm_cle.cwl
-        in:
-            reference: reference
-            tumor_bam: tumor_bam
-            normal_bam: normal_bam
-            docm_vcf: docm_vcf
-            interval_list: roi_intervals
-            filter_docm_variants: filter_docm_variants
-        out:
-            [docm_variants_vcf]
     combine:
         run: ../tools/combine_variants_wgs.cwl
         in:
@@ -239,18 +213,10 @@ steps:
             varscan_vcf: varscan/filtered_vcf
         out:
             [combined_vcf]
-    add_docm_variants:
-        run: ../tools/docm_add_variants.cwl
-        in:
-            reference: reference
-            docm_vcf: docm/docm_variants_vcf
-            callers_vcf: combine/combined_vcf
-        out:
-            [merged_vcf]
     decompose:
         run: ../tools/vt_decompose.cwl
         in:
-            vcf: add_docm_variants/merged_vcf
+            vcf: combine/combined_vcf
         out:
             [decomposed_vcf]
     decompose_index:
@@ -330,10 +296,9 @@ steps:
         out:
             [indexed_vcf]
     filter_vcf:
-        run: ../subworkflows/filter_vcf.cwl
+        run: ../subworkflows/filter_vcf_nonhuman.cwl
         in: 
             vcf: index/indexed_vcf
-            filter_gnomADe_maximum_population_allele_frequency: filter_gnomADe_maximum_population_allele_frequency
             filter_mapq0_threshold: filter_mapq0_threshold
             filter_somatic_llr_threshold: filter_somatic_llr_threshold
             filter_somatic_llr_tumor_purity: filter_somatic_llr_tumor_purity
@@ -344,20 +309,6 @@ steps:
             reference: reference
             normal_sample_name: normal_sample_name
             tumor_sample_name: tumor_sample_name
-            gnomad_field_name:
-              source: vep_custom_annotations
-              valueFrom: |
-                ${
-                   if(self){
-                        for(var i=0; i<self.length; i++){
-                            if(self[i].annotation.gnomad_filter){
-                                return(self[i].annotation.name + '_AF');
-                            }
-                        }
-                    }
-                    return('gnomAD_AF');
-                }
-            validated_variants: validated_variants
         out: 
             [filtered_vcf]
     annotated_filter_bgzip:

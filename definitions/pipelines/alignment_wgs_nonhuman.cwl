@@ -40,9 +40,9 @@ inputs:
         default: []
     picard_metric_accumulation_level:
         type: string
-    minimum_mapping_quality:
+    qc_minimum_mapping_quality:
         type: int?
-    minimum_base_quality:
+    qc_minimum_base_quality:
         type: int?
 outputs:
     bam:
@@ -109,8 +109,8 @@ steps:
             bam: alignment/final_bam
             reference: reference
             picard_metric_accumulation_level: picard_metric_accumulation_level
-            minimum_mapping_quality: minimum_mapping_quality
-            minimum_base_quality: minimum_base_quality
+            minimum_mapping_quality: qc_minimum_mapping_quality
+            minimum_base_quality: qc_minimum_base_quality
             per_base_intervals: per_base_intervals
             per_target_intervals: per_target_intervals
             summary_intervals: summary_intervals

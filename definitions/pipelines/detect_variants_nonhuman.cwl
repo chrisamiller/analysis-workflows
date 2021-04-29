@@ -32,7 +32,7 @@ inputs:
         type: int?
     scatter_count:
         type: int
-        doc: "scatters each supported variant detector (varscan, pindel, mutect) into this many parallel jobs"
+        doc: "scatters each supported variant detector (varscan, mutect) into this many parallel jobs"
     varscan_strand_filter:
         type: int?
         default: 0
@@ -47,9 +47,6 @@ inputs:
         default: 0.99
     varscan_max_normal_freq:
         type: float?
-    pindel_insert_size:
-        type: int
-        default: 400
     vep_cache_dir:
         type:
             - string
@@ -134,14 +131,6 @@ outputs:
         type: File
         outputSource: varscan/filtered_vcf
         secondaryFiles: [.tbi]
-    pindel_unfiltered_vcf:
-        type: File
-        outputSource: pindel/unfiltered_vcf
-        secondaryFiles: [.tbi]
-    pindel_filtered_vcf:
-        type: File
-        outputSource: pindel/filtered_vcf
-        secondaryFiles: [.tbi]
     final_vcf:
         type: File
         outputSource: index/indexed_vcf
@@ -210,19 +199,6 @@ steps:
             normal_sample_name: normal_sample_name
         out:
             [unfiltered_vcf, filtered_vcf]
-    pindel:
-        run: ../subworkflows/pindel.cwl
-        in:
-            reference: reference
-            tumor_bam: tumor_bam
-            normal_bam: normal_bam
-            interval_list: roi_intervals
-            scatter_count: scatter_count
-            insert_size: pindel_insert_size
-            tumor_sample_name: tumor_sample_name
-            normal_sample_name: normal_sample_name
-        out:
-            [unfiltered_vcf, filtered_vcf]
     combine:
         run: ../tools/combine_variants.cwl
         in:
@@ -230,7 +206,6 @@ steps:
             mutect_vcf: mutect/filtered_vcf
             strelka_vcf: strelka/filtered_vcf
             varscan_vcf: varscan/filtered_vcf
-            pindel_vcf: pindel/filtered_vcf
         out:
             [combined_vcf]
     decompose:

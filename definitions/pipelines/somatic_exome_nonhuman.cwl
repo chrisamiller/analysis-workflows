@@ -84,7 +84,7 @@ inputs:
         default: 8
     scatter_count:
         type: int
-        doc: "scatters each supported variant detector (varscan, pindel, mutect) into this many parallel jobs"
+        doc: "scatters each supported variant detector (varscan, mutect) into this many parallel jobs"
     varscan_strand_filter:
         type: int?
         default: 0
@@ -99,9 +99,6 @@ inputs:
         default: 0.99
     varscan_max_normal_freq:
         type: float?
-    pindel_insert_size:
-        type: int
-        default: 400
     vep_cache_dir:
         type:
             - string
@@ -243,14 +240,6 @@ outputs:
         type: File
         outputSource: detect_variants/varscan_filtered_vcf
         secondaryFiles: [.tbi]
-    pindel_unfiltered_vcf:
-        type: File
-        outputSource: detect_variants/pindel_unfiltered_vcf
-        secondaryFiles: [.tbi]
-    pindel_filtered_vcf:
-        type: File
-        outputSource: detect_variants/pindel_filtered_vcf
-        secondaryFiles: [.tbi]
     final_vcf:
         type: File
         outputSource: detect_variants/final_vcf
@@ -339,7 +328,6 @@ steps:
             varscan_min_var_freq: varscan_min_var_freq
             varscan_p_value: varscan_p_value
             varscan_max_normal_freq: varscan_max_normal_freq
-            pindel_insert_size: pindel_insert_size
             vep_cache_dir: vep_cache_dir
             synonyms_file: synonyms_file
             annotate_coding_only: annotate_coding_only
@@ -357,7 +345,7 @@ steps:
             tumor_sample_name: tumor_sample_name
             normal_sample_name: normal_sample_name
         out:
-            [mutect_unfiltered_vcf, mutect_filtered_vcf, strelka_unfiltered_vcf, strelka_filtered_vcf, varscan_unfiltered_vcf, varscan_filtered_vcf, pindel_unfiltered_vcf, pindel_filtered_vcf, final_vcf, final_filtered_vcf, final_tsv, vep_summary, tumor_snv_bam_readcount_tsv, tumor_indel_bam_readcount_tsv, normal_snv_bam_readcount_tsv, normal_indel_bam_readcount_tsv]
+            [mutect_unfiltered_vcf, mutect_filtered_vcf, strelka_unfiltered_vcf, strelka_filtered_vcf, varscan_unfiltered_vcf, varscan_filtered_vcf, final_vcf, final_filtered_vcf, final_tsv, vep_summary, tumor_snv_bam_readcount_tsv, tumor_indel_bam_readcount_tsv, normal_snv_bam_readcount_tsv, normal_indel_bam_readcount_tsv]
     tumor_bam_to_cram:
         run: ../tools/bam_to_cram.cwl
         in:

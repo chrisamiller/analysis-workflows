@@ -70,74 +70,46 @@ inputs:
 
     tumor_sequence:
         type: ../types/sequence_data.yml#sequence_data[]
-        label: "tumor_sequence: file specifying the location of MT sequencing data"
+        label: "tumor_sequence: MT sequencing data and readgroup information"
         doc: |
-          tumor_sequence is a data structure described in sequence_data.yml used to pass information regarding
-          sequencing data for single sample (i.e. fastq files). If more than one fastq file exist
-          for a sample, as in the case for multiple instrument data, the sequence tag is simply
-          repeated with the additional data (see example input file). Note that in the @RG field
-          ID and SM are required.
+          tumor_sequence represents the sequencing data for the MT sample as either FASTQs or BAMs with
+          accompanying readgroup information. Note that in the @RG field ID and SM are required.
     tumor_name:
         type: string?
         default: 'tumor'
         label: "tumor_name: String specifying the name of the MT sample"
         doc: |
           tumor_name provides a string for what the MT sample will be referred to in the various
-          outputs, for exmaple the VCF files.
+          outputs, for example the VCF files.
     normal_sequence:
         type: ../types/sequence_data.yml#sequence_data[]
-        label: "normal_sequence: file specifying the location of WT sequencing data"
+        label: "normal_sequence: WT sequencing data and readgroup information"
         doc: |
-          normal_sequence is a data structure described in sequence_data.yml used to pass information regarding
-          sequencing data for single sample (i.e. fastq files). If more than one fastq file exist
-          for a sample, as in the case for multiple instrument data, the sequence tag is simply
-          repeated with the additional data (see example input file). Note that in the @RG field
-          ID and SM are required.
+          normal_sequence represents the sequencing data for the WT sample as either FASTQs or BAMs with
+          accompanying readgroup information. Note that in the @RG field ID and SM are required.
     normal_name:
         type: string?
         default: 'normal'
         label: "normal_name: String specifying the name of the WT sample"
         doc: |
           normal_name provides a string for what the WT sample will be referred to in the various
-          outputs, for exmaple the VCF files.
-    mills:
-        type: File
+          outputs, for example the VCF files.
+    bqsr_known_sites:
+        type: File[]
         secondaryFiles: [.tbi]
-        label: "mills: File specifying common polymorphic indels from mills et al."
+        label: "bqsr_known_sites: One or more databases of known polymorphic sites used to exclude regions around known polymorphisms from analysis."
         doc: |
-          mills provides known polymorphic indels recommended by GATK for a variety of
-          tools including the BaseRecalibrator. This file is part of the GATK resource
+          Known polymorphic indels recommended by GATK for a variety of
+          tools including the BaseRecalibrator. This is part of the GATK resource
           bundle available at http://www.broadinstitute.org/gatk/guide/article?id=1213
-          Essentially it is a list of known indels originally discovered by mill et al.
-          https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1557762/
           File should be in vcf format, and tabix indexed.
-    known_indels:
-        type: File
-        secondaryFiles: [.tbi]
-        label: "known_indels: File specifying common polymorphic indels from 1000G"
-        doc: |
-          known_indels provides known indels reecommended by GATK for a variety of tools
-          including the BaseRecalibrator. This file is part of the GATK resource bundle
-          available at http://www.broadinstitute.org/gatk/guide/article?id=1213
-          Essintially it is a list of known indels from 1000 Genomes Phase I indel calls.
-          File should be in vcf format, and tabix indexed.
-    dbsnp_vcf:
-        type: File
-        secondaryFiles: [.tbi]
-        label: "dbsnp_vcf: File specifying common polymorphic indels from dbSNP"
-        doc: |
-          dbsnp_vcf provides known indels reecommended by GATK for a variety of tools
-          including the BaseRecalibrator. This file is part of the GATK resource bundle
-          available at http://www.broadinstitute.org/gatk/guide/article?id=1213
-          Essintially it is a list of known indels from dbSNP. File should be in vcf format,
-          and tabix indexed.
     bqsr_intervals:
         type: string[]
         label: "bqsr_intervals: Array of strings specifying regions for base quality score recalibration"
         doc: |
           bqsr_intervals provides an array of genomic intervals for which to apply
           GATK base quality score recalibrations. Typically intervals are given
-          for the entire chromosome (i.e. chr1, chr2, etc.), these names should match
+          for the entire chromosome (chr1, chr2, etc.), these names should match
           the format in the reference file.
     bait_intervals:
         type: File
@@ -146,16 +118,23 @@ inputs:
           bait_intervals is an interval_list corresponding to the baits used in sequencing reagent.
           These are essentially coordinates for regions you were able to design probes for in the reagent.
           Typically the reagent provider has this information available in bed format and it can be
-          converted to an interval_list with Picards BedToIntervalList. AstraZeneca also maintains a repo
+          converted to an interval_list with Picard BedToIntervalList. AstraZeneca also maintains a repo
           of baits for common sequencing reagents available at https://github.com/AstraZeneca-NGS/reference_data
     target_intervals:
         type: File
         label: "target_intervals: interval_list file of targets used in the sequencing experiment"
         doc: |
-          target_intervals is an interval_list corresponding to the targets for the sequencing reagent.
-          These are essentially coordinates for regions you wanted to design probes for in the reagent.
-          Bed files with this information can be converted to interval_lists with Picards BedToIntervalList.
+          target_intervals is an interval_list corresponding to the targets for the capture reagent.
+          BED files with this information can be converted to interval_lists with Picard BedToIntervalList.
           In general for a WES exome reagent bait_intervals and target_intervals are the same.
+    target_interval_padding:
+        type: int
+        label: "target_interval_padding: number of bp flanking each target region in which to allow variant calls"
+        doc: |
+            The effective coverage of capture products generally extends out beyond the actual regions
+            targeted. This parameter allows variants to be called in these wingspan regions, extending
+            this many base pairs from each side of the target regions.
+        default: 100
     per_base_intervals:
         type: ../types/labelled_file.yml#labelled_file[]
     per_target_intervals:
@@ -173,19 +152,12 @@ inputs:
     qc_minimum_base_quality:
         type: int?
         default: 0
-    interval_list:
-        type: File
-    cosmic_vcf:
-        type: File?
-        secondaryFiles: [.tbi]
-    panel_of_normals_vcf:
-        type: File?
-        secondaryFiles: [.tbi]
     strelka_cpu_reserved:
         type: int?
         default: 8
-    mutect_scatter_count:
+    scatter_count:
         type: int
+        doc: "scatters each supported variant detector (varscan, pindel, mutect) into this many parallel jobs"
     mutect_artifact_detection_mode:
         type: boolean
         default: false
@@ -213,9 +185,11 @@ inputs:
     docm_vcf:
         type: File
         secondaryFiles: [.tbi]
+        doc: "Common mutations in cancer that will be genotyped and passed through into the merged VCF if they have even low-level evidence of a mutation (by default, marked with filter DOCM_ONLY)"
     filter_docm_variants:
         type: boolean?
         default: true
+        doc: "Determines whether variants found only via genotyping of DOCM sites will be filtered (as DOCM_ONLY) or passed through as variant calls"
     vep_cache_dir:
         type:
             - string
@@ -263,10 +237,10 @@ inputs:
         type: boolean?
     somalier_vcf:
         type: File
-    known_variants:
+    validated_variants:
         type: File?
         secondaryFiles: [.tbi]
-        doc: "Previously discovered variants to be flagged in this pipelines's output vcf"
+        doc: "An optional VCF with variants that will be flagged as 'VALIDATED' if found in this pipeline's main output VCF"
 
     #germline inputs
     emit_reference_confidence:
@@ -281,6 +255,8 @@ inputs:
             items:
                 type: array
                 items: string
+    ploidy:
+        type: int?
     optitype_name:
         type: string?
 
@@ -304,16 +280,18 @@ inputs:
         type: int?
     prediction_algorithms:
         type: string[]
-    epitope_lengths:
+    epitope_lengths_class_i:
+        type: int[]?
+    epitope_lengths_class_ii:
         type: int[]?
     binding_threshold:
+        type: int?
+    percentile_threshold:
         type: int?
     allele_specific_binding_thresholds:
         type: boolean?
     minimum_fold_change:
         type: float?
-    peptide_sequence_length:
-        type: int?
     top_score_metric:
         type:
             - "null"
@@ -372,6 +350,11 @@ inputs:
         label: "netmhc_stab: sets an option whether to run  NetMHCStabPan or not"
         doc: |
           netmhc_stab sets an option that decides whether it will run NetMHCStabPan after all filtering and add stability predictions to predicted epitopes.
+    run_reference_proteome_similarity:
+        type: boolean?
+        label: "run_reference_proteome_similarity: sets an option whether to run reference proteome similarity or not"
+        doc: |
+          run_reference_proteome_similarity sets an option that decides whether it will run reference proteome similarity after all filtering and BLAST peptide sequences against the reference proteome to see if they appear elsewhere in the proteome.
     pvacseq_threads:
         type: int?
         label: "pvacseq_threads: Number of threads to use for parallelizing pvacseq prediction"
@@ -389,6 +372,9 @@ inputs:
           normal_sample_name is the name of the normal sample to use for phasing of germline variants.
 
 outputs:
+    final_bigwig:
+        type: File
+        outputSource: rnaseq/bamcoverage_bigwig
     final_bam:
         type: File
         outputSource: rnaseq/final_bam
@@ -753,9 +739,10 @@ outputs:
     verify_bam_id_depth:
         type: File
         outputSource: germline/verify_bam_id_depth
-    gvcf:
-        type: File[]
-        outputSource: germline/gvcf
+    germline_raw_vcf:
+        type: File
+        outputSource: germline/raw_vcf
+        secondaryFiles: [.tbi]
     germline_final_vcf:
         type: File
         outputSource: germline/final_vcf
@@ -802,6 +789,7 @@ steps:
     rnaseq:
         run: rnaseq.cwl
         in:
+            reference: reference
             reference_index: reference_index
             reference_annotation: reference_annotation
             instrument_data_bams: rna_bams
@@ -821,7 +809,7 @@ steps:
             species: vep_ensembl_species
             assembly: vep_ensembl_assembly
         out:
-            [final_bam, stringtie_transcript_gtf, stringtie_gene_expression_tsv, transcript_abundance_tsv, transcript_abundance_h5, gene_abundance, metrics, chart, fusion_evidence]
+            [final_bam, stringtie_transcript_gtf, stringtie_gene_expression_tsv, transcript_abundance_tsv, transcript_abundance_h5, gene_abundance, metrics, chart, fusion_evidence, bamcoverage_bigwig]
     somatic:
         run: somatic_exome.cwl
         in:
@@ -830,12 +818,11 @@ steps:
             tumor_name: tumor_name
             normal_sequence: normal_sequence
             normal_name: normal_name
-            mills: mills
-            known_indels: known_indels
-            dbsnp_vcf: dbsnp_vcf
+            bqsr_known_sites: bqsr_known_sites
             bqsr_intervals: bqsr_intervals
             bait_intervals: bait_intervals
             target_intervals: target_intervals
+            target_interval_padding: target_interval_padding
             per_base_intervals: per_base_intervals
             per_target_intervals: per_target_intervals
             summary_intervals: summary_intervals
@@ -843,11 +830,8 @@ steps:
             picard_metric_accumulation_level: picard_metric_accumulation_level
             qc_minimum_mapping_quality: qc_minimum_mapping_quality
             qc_minimum_base_quality: qc_minimum_base_quality
-            interval_list: interval_list
-            cosmic_vcf: cosmic_vcf
-            panel_of_normals_vcf: panel_of_normals_vcf
             strelka_cpu_reserved: strelka_cpu_reserved
-            mutect_scatter_count: mutect_scatter_count
+            scatter_count: scatter_count
             mutect_artifact_detection_mode: mutect_artifact_detection_mode
             mutect_max_alt_allele_in_normal_fraction: mutect_max_alt_allele_in_normal_fraction
             mutect_max_alt_alleles_in_normal_count: mutect_max_alt_alleles_in_normal_count
@@ -877,7 +861,7 @@ steps:
             somalier_vcf: somalier_vcf
             tumor_sample_name: tumor_sample_name
             normal_sample_name: normal_sample_name
-            known_variants: known_variants
+            validated_variants: validated_variants
         out:
             [tumor_cram,tumor_mark_duplicates_metrics,tumor_insert_size_metrics,tumor_alignment_summary_metrics,tumor_hs_metrics,tumor_per_target_coverage_metrics,tumor_per_target_hs_metrics,tumor_per_base_coverage_metrics,tumor_per_base_hs_metrics,tumor_summary_hs_metrics,tumor_flagstats,tumor_verify_bam_id_metrics,tumor_verify_bam_id_depth,normal_cram,normal_mark_duplicates_metrics,normal_insert_size_metrics,normal_alignment_summary_metrics,normal_hs_metrics,normal_per_target_coverage_metrics,normal_per_target_hs_metrics,normal_per_base_coverage_metrics,normal_per_base_hs_metrics,normal_summary_hs_metrics,normal_flagstats,normal_verify_bam_id_metrics,normal_verify_bam_id_depth,mutect_unfiltered_vcf,mutect_filtered_vcf,strelka_unfiltered_vcf,strelka_filtered_vcf,varscan_unfiltered_vcf,varscan_filtered_vcf,pindel_unfiltered_vcf,pindel_filtered_vcf,docm_filtered_vcf,final_vcf,final_filtered_vcf,final_tsv,vep_summary,tumor_snv_bam_readcount_tsv,tumor_indel_bam_readcount_tsv,normal_snv_bam_readcount_tsv,normal_indel_bam_readcount_tsv,intervals_antitarget,intervals_target,normal_antitarget_coverage,normal_target_coverage,reference_coverage,cn_diagram,cn_scatter_plot,tumor_antitarget_coverage,tumor_target_coverage,tumor_bin_level_ratios,tumor_segmented_ratios,diploid_variants,somatic_variants,all_candidates,small_candidates,tumor_only_variants,somalier_concordance_metrics,somalier_concordance_statistics]
     germline:
@@ -885,12 +869,11 @@ steps:
         in:
             reference: reference
             sequence: normal_sequence
-            mills: mills
-            known_indels: known_indels
-            dbsnp_vcf: dbsnp_vcf
+            bqsr_known_sites: bqsr_known_sites
             bqsr_intervals: bqsr_intervals
             bait_intervals: bait_intervals
             target_intervals: target_intervals
+            target_interval_padding: target_interval_padding
             per_base_intervals: per_base_intervals
             per_target_intervals: per_target_intervals
             summary_intervals: summary_intervals
@@ -899,6 +882,7 @@ steps:
             emit_reference_confidence: emit_reference_confidence
             gvcf_gq_bands: gvcf_gq_bands
             intervals: gatk_haplotypecaller_intervals
+            ploidy: ploidy
             vep_cache_dir: vep_cache_dir
             vep_ensembl_assembly: vep_ensembl_assembly
             vep_ensembl_version: vep_ensembl_version
@@ -910,12 +894,12 @@ steps:
             qc_minimum_base_quality: qc_minimum_base_quality
             optitype_name: optitype_name
         out:
-            [cram,mark_duplicates_metrics,insert_size_metrics,insert_size_histogram,alignment_summary_metrics,hs_metrics,per_target_coverage_metrics,per_target_hs_metrics,per_base_coverage_metrics,per_base_hs_metrics,summary_hs_metrics,flagstats,verify_bam_id_metrics,verify_bam_id_depth,gvcf,final_vcf,filtered_vcf,vep_summary,optitype_tsv,optitype_plot]
+            [cram,mark_duplicates_metrics,insert_size_metrics,insert_size_histogram,alignment_summary_metrics,hs_metrics,per_target_coverage_metrics,per_target_hs_metrics,per_base_coverage_metrics,per_base_hs_metrics,summary_hs_metrics,flagstats,verify_bam_id_metrics,verify_bam_id_depth,raw_vcf,final_vcf,filtered_vcf,vep_summary,optitype_tsv,optitype_plot]
 
     phase_vcf:
         run: ../subworkflows/phase_vcf.cwl
         in:
-            somatic_vcf: somatic/final_vcf
+            somatic_vcf: somatic/final_filtered_vcf
             germline_vcf: germline/final_vcf
             reference: reference
             reference_dict: reference_dict
@@ -938,10 +922,17 @@ steps:
             clinical_mhc_classII_alleles: clinical_mhc_classII_alleles
         out:
             [consensus_alleles, hla_call_files]
+    intersect_passing_variants:
+        run: ../tools/intersect_known_variants.cwl
+        in:
+            vcf: somatic/final_filtered_vcf
+            validated_variants: validated_variants
+        out:
+            [validated_and_pipeline_vcf]
     pvacseq:
         run: ../subworkflows/pvacseq.cwl
         in:
-            detect_variants_vcf: somatic/final_filtered_vcf
+            detect_variants_vcf: intersect_passing_variants/validated_and_pipeline_vcf
             sample_name: tumor_sample_name
             normal_sample_name: normal_sample_name
             rnaseq_bam: rnaseq/final_bam
@@ -952,11 +943,12 @@ steps:
             transcript_expression_file: rnaseq/transcript_abundance_tsv
             alleles: hla_consensus/consensus_alleles
             prediction_algorithms: prediction_algorithms
-            epitope_lengths: epitope_lengths
+            epitope_lengths_class_i: epitope_lengths_class_i
+            epitope_lengths_class_ii: epitope_lengths_class_ii
             binding_threshold: binding_threshold
+            percentile_threshold: percentile_threshold
             allele_specific_binding_thresholds: allele_specific_binding_thresholds
             minimum_fold_change: minimum_fold_change
-            peptide_sequence_length: peptide_sequence_length
             top_score_metric: top_score_metric
             additional_report_columns: additional_report_columns
             fasta_size: fasta_size
@@ -974,6 +966,7 @@ steps:
             net_chop_method: net_chop_method
             net_chop_threshold: net_chop_threshold
             netmhc_stab: netmhc_stab
+            run_reference_proteome_similarity: run_reference_proteome_similarity
             n_threads: pvacseq_threads
             variants_to_table_fields: variants_to_table_fields
             variants_to_table_genotype_fields: variants_to_table_genotype_fields

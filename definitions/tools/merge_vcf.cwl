@@ -6,7 +6,7 @@ label: "merge VCF files from non-overlapping sample sets"
 baseCommand: ["/opt/bcftools/bin/bcftools", "merge"]
 requirements:
     - class: DockerRequirement
-      dockerPull: mgibio/bcftools-cwl:1.3.1
+      dockerPull: mgibio/bcftools-cwl:1.12
     - class: ResourceRequirement
       ramMin: 4000
 arguments:
